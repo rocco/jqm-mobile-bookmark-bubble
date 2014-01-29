@@ -1,8 +1,8 @@
 /*
   Modified by Robert Gerald Porter, for Weever Apps Inc.
 
-  Version:  1.1.3
-  Release:  October 21, 2011
+  Version:  1.1.4
+  Release:  January 29, 2014
 
   Based upon Mobile Bookmark Bubble by Google Inc., original copyrights and license below.
 
@@ -23,6 +23,8 @@
   1.1.2 : - Android 4.0 Tablet / Mobile both support.
   1.1.3 : - Fork by wiifm
           - iOS7 support.
+  1.1.4 : - Fork by triq6
+          - Chrome for Android 32+ support
 
   ##########################
 
@@ -272,6 +274,8 @@ google.bookmarkbubble.Bubble.prototype.msg = {
     '<b>Install this app:</b><br /> 1) Tap <img src="'+ google.bookmarkbubble.Bubble.prototype.IMAGE_ANDROID4_MOBILE_BOOKMARK_DATA_URL_ +'" style="height: 1.5em;display: inline-block;padding:0;margin:0;" />,<br /> 2) Select "<b>Save to bookmarks</b>",<br /> 3) Select "<b>Add to</b>" and then "<b>Home</b>"',
   android41:
     '<b>Install this app:</b><br /> 1) Add to Bookmarks,<br /> 2) Tap and Hold the bookmark,<br /> 3) Select "<b>Add Shortcut</b>"',
+  chrome32:
+    '<b>Install this app:</b><br /> 1) Tap <img src="'+ google.bookmarkbubble.Bubble.prototype.IMAGE_ANDROID4_MOBILE_BOOKMARK_DATA_URL_ +'" style="height: 1.5em;display: inline-block;padding:0;margin:0;" />,<br /> 2) Select "<b>Add to homescreen</b>"',
   blackberry:
     '<b>Install this app:</b><br /> Tap <img src="'+ google.bookmarkbubble.Bubble.prototype.IMAGE_BLACKBERRY_ICON_DATA_URL_ +'" style="height: 1em;display: inline-block;padding:0;margin:0" />, select "<b>Add to Home Screen</b>"',
   playbook:
@@ -316,6 +320,7 @@ google.bookmarkbubble.Bubble.prototype.IPAD_USERAGENT_REGEX_ = /iPad/;
 * additional stuffs for Android, BlackBerry
 */
 google.bookmarkbubble.Bubble.prototype.ANDROID_USERAGENT_REGEX_ = /Android/;
+google.bookmarkbubble.Bubble.prototype.CHROME_USERAGENT_REGEX_ = /Chrome/;
 google.bookmarkbubble.Bubble.prototype.BLACKBERRY_USERAGENT_REGEX_ = /BlackBerry/;
 google.bookmarkbubble.Bubble.prototype.PLAYBOOK_USERAGENT_REGEX_ = /PlayBook/;
 
@@ -334,6 +339,14 @@ google.bookmarkbubble.Bubble.prototype.IOS_VERSION_USERAGENT_REGEX_ =
  */
 google.bookmarkbubble.Bubble.prototype.ANDROID_VERSION_USERAGENT_REGEX_ =
     /Android (\d)\.(\d)(?:\.(\d))?/;
+
+/**
+ * Regular expression for extracting the Chrome version.
+ * @type {!RegExp}
+ * @private
+ */
+google.bookmarkbubble.Bubble.prototype.CHROME_VERSION_USERAGENT_REGEX_ =
+    /CHROME\/(\d)\.(\d)(?:\.(\d))?/;
 
 
 /**
@@ -474,6 +487,10 @@ google.bookmarkbubble.Bubble.prototype.isAndroid_ = function() {
   return this.ANDROID_USERAGENT_REGEX_.test(window.navigator.userAgent);
 };
 
+google.bookmarkbubble.Bubble.prototype.isChrome_ = function() {
+  return this.CHROME_USERAGENT_REGEX_.test(window.navigator.userAgent);
+};
+
 google.bookmarkbubble.Bubble.prototype.isBlackBerry_ = function() {
   return this.BLACKBERRY_USERAGENT_REGEX_.test(window.navigator.userAgent);
 };
@@ -527,6 +544,17 @@ google.bookmarkbubble.Bubble.prototype.getAndroidVersion_ = function() {
   return this.getVersion_.apply(this, groups);
 };
 
+/**
+ * Gets the Chrome version of the device.
+ * @return {number} The Chrome version.
+ * @private
+ */
+google.bookmarkbubble.Bubble.prototype.getChromeVersion_ = function() {
+  var groups = this.CHROME_VERSION_USERAGENT_REGEX_.exec(
+      window.navigator.userAgent) || [];
+  groups.shift();
+  return this.getVersion_.apply(this, groups);
+};
 
 google.bookmarkbubble.Bubble.prototype.isMobile_ = function() {
   return window.navigator.userAgent.indexOf("Mobile Safari") >= 0;
@@ -642,11 +670,11 @@ google.bookmarkbubble.Bubble.prototype.getLink = function(rel) {
  * @private
  */
 google.bookmarkbubble.Bubble.prototype.build_ = function() {
-  var bubble = document.createElement('div');
-  var isIpad = this.isIpad_();
-  var isAndroid = this.isAndroid_();
-  var isPlayBook = this.isPlayBook_();
-  var isBlackBerry = this.isBlackBerry_();
+  var bubble = document.createElement('div'),
+      isIpad = this.isIpad_(),
+      isAndroid = this.isAndroid_(),
+      isPlayBook = this.isPlayBook_(),
+      isBlackBerry = this.isBlackBerry_();
 
 
   bubble.style.position = 'absolute';
@@ -679,11 +707,14 @@ google.bookmarkbubble.Bubble.prototype.build_ = function() {
   // The "Add to Home Screen" text is intended to be the exact same text
   // that is displayed in the menu of Android / Mobile Safari.
   if (isAndroid) {
+    console.log('we got android!');
     bubbleInner.style.font = '0.625em sans-serif';
-    if (this.getAndroidVersion_() < this.getVersion_(3, 0)) {
+    if (this.getChromeVersion_() < this.getVersion_(32, 0)) {
+      console.log('we got chrome!');
+      bubbleInner.innerHTML = this.msg.chrome32;
+    } else if (this.getAndroidVersion_() < this.getVersion_(3, 0)) {
       bubbleInner.innerHTML = this.msg.android;
-    }
-    else {
+    } else {
       if ((this.getAndroidVersion_() < this.getVersion_(4, 0)) && this.isMobile_()) {
         bubbleInner.innerHTML = this.msg.android3;
       }
@@ -739,7 +770,7 @@ google.bookmarkbubble.Bubble.prototype.build_ = function() {
     arrow.style.WebkitTransform = 'rotate(180deg)';
     arrow.style.top = '-19px';
     arrow.style.left = '111px';
-  } else if (this.getAndroidVersion_() >= this.getVersion_(3, 0)) {
+  } else if ((this.getAndroidVersion_() >= this.getVersion_(3, 0)) || (this.getChromeVersion_() >= this.getVersion_(32, 0))) {
     arrow.style.WebkitTransform = 'scale(1, -1)';
     arrow.style.top = '-19px';
     arrow.style.left = '180px';
